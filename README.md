@@ -49,4 +49,4 @@ Choose from "market1501", "dukemtmc", and "last". The code supports additional d
 Path to the selected dataset.
 
 
-## Presentation Link -
+## Presentation Link - https://drive.google.com/drive/folders/1RfEx5Dv7uTjemIni9CiiSmViQzFH0fJi?usp=sharing
