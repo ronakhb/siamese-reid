@@ -7,17 +7,18 @@ import torch
 from torch.backends import cudnn
 import numpy as np
 
+# Import custom modules
 sys.path.append(".")
 from data import make_data_loader_market as make_data_loader
 from engine.trainer import do_train_market as do_train
 from modeling import build_model
 from loss import make_loss_with_center
 from solver import make_optimizer, WarmupMultiStepLR
-from engine.inference import inference,onnxInference
+from engine.inference import inference
 import datetime
 import onnxruntime as ort
 
-
+# Function to load pretrained network
 def load_network_pretrain(model, cfg):
     path = os.path.join(cfg.logs_dir, "checkpoint.pth")
     if not os.path.exists(path):
@@ -30,17 +31,17 @@ def load_network_pretrain(model, cfg):
     print("best_acc:", best_acc)
     return model, start_epoch, best_acc
 
-
+# Main function
 def main(cfg):
-
+    # Load dataset and create data loaders
     dataset, train_loader, test_loader, num_query, num_classes = make_data_loader(cfg)
     num_classes = 751
-    # prepare model
-    model = build_model(
-        num_classes, cfg.model_name, pretrain_choice=True
-    )  # num_classes=5000
+
+    # Prepare model
+    model = build_model(num_classes, cfg.model_name, pretrain_choice=True)
     model = torch.nn.DataParallel(model).cuda() if torch.cuda.is_available() else model
 
+    # Define loss function and optimizer
     if cfg.model_name == "siamese":
         feat_dim=960
         loss_func,_ = make_loss_with_center(cfg, num_classes,feat_dim=960)  # MobilenetaLarge Model
@@ -64,16 +65,13 @@ def main(cfg):
         cfg.warmup_iters,
         cfg.warmup_method,
     )
-    # scheduler = torch.optim.lr_scheduler.StepLR(
-    #     optimizer, step_size=5, gamma=cfg.gamma
-    # )
 
+    # Train or test the model
     if cfg.train == 1:
         model, start_epoch, acc_best = load_network_pretrain(model, cfg)
         start_epoch = 0
         model.linear_layer = torch.nn.Linear(feat_dim, num_classes)
             
-
         do_train(cfg, model, train_loader, test_loader, optimizer, scheduler, loss_func, num_query, start_epoch, acc_best)
     
         last_model_wts = torch.load(os.path.join(cfg.logs_dir, 'checkpoint_best.pth'))
@@ -85,7 +83,6 @@ def main(cfg):
         print('{} - Final: cmc1: {:.1%} cmc5: {:.1%} cmc10: {:.1%} cmc20: {:.1%} mAP: {:.1%}\n'.format(start_time, cmc1, cmc5, cmc10, cmc20, mAP))
 
     else:
-
         # Test
         last_model_wts = torch.load(os.path.join(cfg.logs_dir, 'checkpoint.pth'))
         model.load_state_dict(last_model_wts['state_dict'],strict=False)
@@ -99,12 +96,15 @@ def main(cfg):
 
 
 if __name__ == "__main__":
+    # Set CUDA visible devices
     gpu_id = 0
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
     cudnn.benchmark = True
 
+    # Parse command line arguments
     parser = argparse.ArgumentParser(description="ReID Baseline Training")
 
+    # Add arguments for various parameters
     # DATA
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--img_per_id", type=int, default=4)
@@ -163,8 +163,10 @@ if __name__ == "__main__":
         default="/home/ronak/datasets/market1501/logs/baseline"
     )
 
+    # Parse arguments
     cfg = parser.parse_args()
     if not os.path.exists(cfg.logs_dir):
         os.makedirs(cfg.logs_dir)
 
+    # Call the main function
     main(cfg)

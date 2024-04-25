@@ -78,31 +78,6 @@ def inference(model, test_loader, num_query, return_f=False,save_cmc_plot = Fals
                 plot_cmc(cmc,plot_name)
             return mAP, cmc[0], cmc[4], cmc[9], cmc[19]
 
-def onnxInference(model_path, test_loader, num_query, return_f=False):
-    print('Onnx Test')
-    metric = R1_mAP(num_query, 500)
-    features = OrderedDict()
-    ort_session = ort.InferenceSession(model_path)
-    for ii, batch in tqdm(enumerate(test_loader)):        # len(test_loader)=151
-        data, pid, cmp, fnames = batch              # [128, 3, 256, 128]
-        data = data.cpu().numpy()
-        f1 = ort_session.run(None, {'input':data})  # [128, 3840]
-        f2 = ort_session.run(None, {'input':data})  # [128, 3840]
-        f_np = 0.5 * (f1[0] + f2[0])  # [128, 2048]
-        f = torch.from_numpy(f_np)
-        f = norm(f)  # [128, 2048]
-        metric.update([f, pid, cmp])
-        if return_f:
-            for fname, output in zip(fnames, f):
-                features[fname] = output  # [2048,]
-    cmc, mAP = metric.compute()
-    if return_f:
-        # plot_cmc(cmc)
-        return mAP, cmc[0], cmc[4], cmc[9], cmc[19], features
-    else:
-        # plot_cmc(cmc)
-        return mAP, cmc[0], cmc[4], cmc[9], cmc[19]
-
 def plot_cmc(cmc,plot_name = "cmc_plot"):
     # Create a figure and axis
     fig, ax = plt.subplots()

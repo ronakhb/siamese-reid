@@ -16,7 +16,7 @@ from engine.trainer import do_train_market as do_train
 from modeling import build_model
 from loss import make_loss_with_center
 from solver import make_optimizer, WarmupMultiStepLR
-from engine.inference import inference,onnxInference
+from engine.inference import inference
 import datetime
 import onnxruntime as ort
 
