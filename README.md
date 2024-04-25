@@ -50,3 +50,4 @@ Path to the selected dataset.
 
 
 ## Presentation Link - https://drive.google.com/drive/folders/1RfEx5Dv7uTjemIni9CiiSmViQzFH0fJi?usp=sharing
+##Pretrained Weights - https://drive.google.com/drive/folders/1Rmmy_538NdgABKeSNGC1O6ek79kmJIFl?usp=drive_link
