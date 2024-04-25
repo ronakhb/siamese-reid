@@ -7,7 +7,10 @@ import torch
 from torch.backends import cudnn
 import numpy as np
 
+# Add current directory to the Python path
 sys.path.append(".")
+
+# Import functions and classes from the project modules
 from data import make_data_loader_market as make_data_loader
 from engine.trainer import do_train_market as do_train
 from modeling import build_model
@@ -17,14 +20,17 @@ from engine.inference import inference,onnxInference
 import datetime
 import onnxruntime as ort
 
+# Function to count the number of trainable parameters in the model
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-
+# Function to load pretrained weights into the model if available
 def load_network_pretrain(model, cfg):
+    # Check if the checkpoint file exists
     path = os.path.join(cfg.logs_dir, "checkpoint.pth")
     if not os.path.exists(path):
         return model, 0, 0.0
+    # Load pretrained weights from the checkpoint file
     pre_dict = torch.load(path)
     model.load_state_dict(pre_dict["state_dict"],strict=False)
     start_epoch = pre_dict["epoch"]
@@ -33,22 +39,26 @@ def load_network_pretrain(model, cfg):
     print("best_acc:", best_acc)
     return model, start_epoch, best_acc
 
-
+# Main function
 def main(cfg):
-    
+    # Make data loaders for the specified dataset
     dataset, train_loader, test_loader, num_query, num_classes = make_data_loader(cfg)
-    num_classes = 751
-    # prepare model
+    num_classes = 751  # Override num_classes if necessary
+    
+    # Build the model
     model = build_model(
         num_classes, cfg.model_name, pretrain_choice=True
     )  # num_classes=5000
     model = torch.nn.DataParallel(model).cuda() if torch.cuda.is_available() else model
+    
+    # Print the number of parameters in the model
     if cfg.param_count == 1:
         num_params = count_parameters(model)
         num_params /= 1000000
         print("Model has ",num_params," million params")
         exit(0)
 
+    # Define loss function based on the model architecture
     if cfg.model_name == "siamese":
         loss_func,_ = make_loss_with_center(cfg, num_classes,feat_dim=960)  # MobilenetaLarge Model
     elif cfg.model_name == "baseline":
@@ -57,6 +67,8 @@ def main(cfg):
         loss_func,_ = make_loss_with_center(cfg, num_classes,feat_dim=1000) #OSNet
     else:
         loss_func,_ = make_loss_with_center(cfg, num_classes,feat_dim=576)  # MobilenetSmall Model
+    
+    # Make optimizer and scheduler
     optimizer = make_optimizer(cfg, model)
     scheduler = WarmupMultiStepLR(
         optimizer,
@@ -73,7 +85,10 @@ def main(cfg):
         if cfg.resume == 1:
             model, start_epoch, acc_best = load_network_pretrain(model, cfg)
 
+        # Train the model
         do_train(cfg, model, train_loader, test_loader, optimizer, scheduler, loss_func, num_query, start_epoch, acc_best)
+        
+        # Load the best model and perform inference
         last_model_wts = torch.load(os.path.join(cfg.logs_dir, 'checkpoint_best.pth'))
         model.load_state_dict(last_model_wts['state_dict'],strict=False)
         mAP, cmc1, cmc5, cmc10, cmc20, feat_dict = inference(model, test_loader, num_query, True,save_cmc_plot=True,plot_name="/home/ronak/PRCV final project/siamese_reid/plots/" + cfg.run_name)
@@ -82,7 +97,6 @@ def main(cfg):
         start_time = '%4d:%d:%d-%2d:%2d:%2d' % (start_time.year, start_time.month, start_time.day, start_time.hour, start_time.minute, start_time.second)
         print('{} - Final: cmc1: {:.1%} cmc5: {:.1%} cmc10: {:.1%} cmc20: {:.1%} mAP: {:.1%}\n'.format(start_time, cmc1, cmc5, cmc10, cmc20, mAP))
     else:
-
         # Test
         last_model_wts = torch.load(os.path.join(cfg.logs_dir, 'checkpoint.pth'))
         model.load_state_dict(last_model_wts['state_dict'],strict=False)
@@ -92,16 +106,18 @@ def main(cfg):
         start_time = '%4d:%d:%d-%2d:%2d:%2d' % (start_time.year, start_time.month, start_time.day, start_time.hour, start_time.minute, start_time.second)
         print('{} - Final: cmc1: {:.1%} cmc5: {:.1%} cmc10: {:.1%} cmc20: {:.1%} mAP: {:.1%}\n'.format(start_time, cmc1, cmc5, cmc10, cmc20, mAP))
     
-        return
-
+    return
 
 if __name__ == "__main__":
+    # Set CUDA visible devices
     gpu_id = 0
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
     cudnn.benchmark = True
 
+    # Parse command line arguments
     parser = argparse.ArgumentParser(description="ReID Baseline Training")
-
+    # Add arguments for various parameters
+    
     # DATA
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--img_per_id", type=int, default=4)
@@ -163,7 +179,12 @@ if __name__ == "__main__":
         default="/home/ronak/datasets/market1501/logs/baseline"
     )
 
+    # Parse arguments
     cfg = parser.parse_args()
+    
+    # Create logs directory if it doesn't exist
     if not os.path.exists(cfg.logs_dir):
         os.makedirs(cfg.logs_dir)
+    
+    # Call the main function
     main(cfg)
