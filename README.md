@@ -1,5 +1,4 @@
-# Project Description
-Team Member(s) - Ronak Harish Bhanushali
+# Person Re-identification using Siamese Neural Networks
 This project tests out different models and datasets for person reidentification and evaluates its performance. Models used for this are - 
 1. ResNet50 Baseline as shown in Bag of Tricks Paper
 2. OSNet
